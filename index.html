@@ -6,7 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Birthday Quest - Princess Ikah Menyelamatkan Prince Andri!</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@700;800&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -16,7 +17,7 @@
 
   <!-- Audio Elements -->
   <audio id="bgMusic" src="Asset/backsound.mp3" loop preload="auto"></audio>
-  <audio id="birthdayAudio" src="Asset/lagu.mp3" preload="auto"></audio>
+  <audio id="birthdayAudio" src="Asset/music.mp3" preload="auto"></audio>
 
   <!-- Menu Utama Langsung Terbuka -->
   <div id="screen-menu" class="screen">
@@ -49,7 +50,8 @@
         </div>
         <div class="input-group">
           <label class="input-label">TAHUN</label>
-          <input type="number" id="inpYear" class="chibi-input" inputmode="numeric" placeholder="" min="1980" max="2030">
+          <input type="number" id="inpYear" class="chibi-input" inputmode="numeric" placeholder="" min="1980"
+            max="2030">
         </div>
       </div>
       <div id="formError" class="form-error hidden">&#9888; Silakan isi tanggal, bulan (1-12), dan tahun lahir!</div>
@@ -59,11 +61,13 @@
 
   <!-- HUD Game -->
   <div id="game-hud" class="hidden">
-    <div class="hud-item"><span class="hud-lbl">LIVES</span><span id="hudLives">&#10084;&#65039;&#10084;&#65039;&#10084;&#65039;</span></div>
+    <div class="hud-item"><span class="hud-lbl">LIVES</span><span
+        id="hudLives">&#10084;&#65039;&#10084;&#65039;&#10084;&#65039;</span></div>
     <div class="hud-item"><span class="hud-lbl">SCORE</span><span id="hudScore">0</span></div>
     <div class="hud-item"><span class="hud-lbl">TIME</span><span id="hudTime">180</span></div>
     <div class="hud-item"><span id="hudKey">&#128273; Cari Kunci</span></div>
-    <button id="btnMute" class="hud-item hud-btn-mute" onclick="toggleMuteSound()" title="Mute / Unmute Sound">&#128266;</button>
+    <button id="btnMute" class="hud-item hud-btn-mute" onclick="toggleMuteSound()"
+      title="Mute / Unmute Sound">&#128266;</button>
   </div>
 
   <!-- Touch Controls HP -->
@@ -95,7 +99,8 @@
           <div class="from-text">&mdash; Prince Andri &#128081;</div>
         </div>
         <div class="voice-section">
-          <button id="btnPlayMusic" class="chibi-btn small" onclick="toggleBirthdayAudio()">&#9654; Putar Musik / Ucapan</button>
+          <button id="btnPlayMusic" class="chibi-btn small" onclick="toggleBirthdayAudio()">&#9654; Putar Musik /
+            Ucapan</button>
         </div>
         <button class="chibi-btn small" style="margin-top:10px" onclick="replayGame()">&#128260; Main Lagi</button>
       </div>
