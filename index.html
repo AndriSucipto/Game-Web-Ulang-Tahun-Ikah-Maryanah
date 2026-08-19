@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Birthday Quest — Princess Ikah Menyelamatkan Prince Andri!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Canvas Game -->
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- Menu Utama Langsung Terbuka -->
+  <div id="screen-menu" class="screen">
+    <div id="starsContainer" class="stars-bg"></div>
+    <div class="menu-box">
+      <div class="menu-couple-art">
+        <img src="chibi_couple.jpg" alt="Princess Ikah dan Prince Andri" id="coupleMenuImg">
+      </div>
+      <div class="logo-main">BIRTHDAY</div>
+      <div class="logo-sub">QUEST &#127874;</div>
+      <p class="menu-tagline">Princess Ikah harus menyelamatkan<br>Prince Andri dari sangkar!</p>
+      <button class="chibi-btn" id="btnStart">&#9654; MULAI PETUALANGAN</button>
+    </div>
+    <div class="menu-footer">Made with &#128149; by Prince Andri untuk Sayang</div>
+  </div>
+
+  <!-- Form Ulang Tahun Bebas Input -->
+  <div id="screen-form" class="screen hidden">
+    <div class="form-box">
+      <h1 class="form-title">&#10024; Hari Spesial Princess &#10024;</h1>
+      <p class="form-desc">Masukkan tanggal lahir<br><strong>Princess Ikah Maryanah</strong></p>
+      <div class="input-row">
+        <div class="input-group">
+          <label class="input-label">HARI</label>
+          <input type="number" id="inpDay" class="chibi-input" inputmode="numeric" placeholder="20" min="1" max="31">
+        </div>
+        <div class="input-group">
+          <label class="input-label">BULAN</label>
+          <select id="inpMonth" class="chibi-input chibi-select">
+            <option value="">--</option>
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label class="input-label">TAHUN</label>
+          <input type="number" id="inpYear" class="chibi-input" inputmode="numeric" placeholder="2000" min="1990" max="2015">
+        </div>
+      </div>
+      <div id="formError" class="form-error hidden">&#9888; Isi semua tanggal dengan benar!</div>
+      <button class="chibi-btn" id="btnPlay">MULAI PETUALANGAN &#9654;</button>
+    </div>
+  </div>
+
+  <!-- HUD Game -->
+  <div id="game-hud" class="hidden">
+    <div class="hud-item"><span class="hud-lbl">LIVES</span><span id="hudLives">&#10084;&#65039;&#10084;&#65039;&#10084;&#65039;</span></div>
+    <div class="hud-item"><span class="hud-lbl">SCORE</span><span id="hudScore">0</span></div>
+    <div class="hud-item"><span class="hud-lbl">TIME</span><span id="hudTime">180</span></div>
+    <div class="hud-item"><span id="hudKey">&#128273; Cari Kunci</span></div>
+  </div>
+
+  <!-- Touch Controls HP -->
+  <div id="touch-controls" class="hidden">
+    <div class="touch-left-area">
+      <button class="touch-btn dpad" id="tcLeft">&#9664;</button>
+      <button class="touch-btn dpad" id="tcRight">&#9654;</button>
+    </div>
+    <div class="touch-right-area">
+      <button class="touch-btn jump" id="tcJump">JUMP</button>
+    </div>
+  </div>
+
+  <!-- Popup Ending & Kue Ulang Tahun -->
+  <div id="ending-popup" class="ending-popup hidden">
+    <div class="ending-popup-overlay"></div>
+    <div class="ending-popup-inner">
+      <div id="confetti-layer" class="confetti-layer"></div>
+      <div class="popup-content">
+        <div class="popup-header">&#127881; SELAMAT ULANG TAHUN! &#127881;</div>
+        <div class="popup-name">Ikah Maryanah</div>
+        <div id="popup-info" class="popup-info">Ulang Tahun ke-26 &#127870;</div>
+        <div class="popup-couple-wrap">
+          <img src="chibi_couple.jpg" class="popup-couple-img" alt="Ikah dan Andri">
+        </div>
+        <div class="popup-msg">
+          "Kamu adalah petualang terhebat yang pernah hadir<br>
+          di hidupku. Selamat ulang tahun ke-26 Sayangku!<br>
+          Semoga selalu bahagia dan sehat &#128149;"
+          <div class="from-text">&mdash; Prince Andri &#128081;</div>
+        </div>
+        <div class="voice-section">
+          <div class="voice-label">&#127908; Pesan Suara dari Prince Andri</div>
+          <div id="voicePlayer" class="voice-player hidden">
+            <button id="btnVoice" class="chibi-btn small" onclick="toggleVoice()">&#9654; Play</button>
+            <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+            <span id="voiceTime" class="voice-time">0:00</span>
+          </div>
+          <div class="voice-controls-row">
+            <button id="btnRecord" class="chibi-btn small record-btn" onclick="toggleRecording()">&#127908; Rekam Suara</button>
+            <label for="voiceInput" class="chibi-btn small upload-lbl">&#128193; Upload Audio</label>
+            <input type="file" id="voiceInput" accept="audio/*" class="hidden" onchange="loadVoice(event)">
+          </div>
+          <div id="recStatus" class="rec-status hidden">&#128308; Merekam... <span id="recTimer">0s</span></div>
+        </div>
+        <button class="chibi-btn small" style="margin-top:10px" onclick="replayGame()">&#128260; Main Lagi</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
