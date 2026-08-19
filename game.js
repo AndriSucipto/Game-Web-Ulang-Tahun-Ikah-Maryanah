@@ -1,5 +1,5 @@
 /* ============================================================
-   BIRTHDAY QUEST  -  game.js  v5 (PRO Polish)
+   BIRTHDAY QUEST  -  game.js  v7 (Music & Audio Polish)
    Princess Ikah menyelamatkan Prince Andri!  🎂👑
    Built with love for Ikah Maryanah's Special Birthday
    ============================================================ */
@@ -24,7 +24,7 @@ function resizeCanvas() {
 
 window.addEventListener('resize', () => {
   resizeCanvas();
-  if (gameState === 'playing' || gameState === 'gameover') {
+  if (gameState === 'playing' || gameState === 'gameover' || gameState === 'cutscene') {
     buildLevel();
     resetPlayer(false);
   }
@@ -76,9 +76,11 @@ function isImgLoaded(k) {
 }
 
 /* ────────────────────────────────────────────────────────────
-   3. AUDIO SYNTHESIZER (Web Audio API)
+   3. AUDIO SYNTHESIZER & MUTE CONTROL
    ──────────────────────────────────────────────────────────── */
 let audioCtx = null;
+let isMuted = false;
+
 function getAudioCtx() {
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -90,6 +92,7 @@ function getAudioCtx() {
 }
 
 function playTone(freq, duration, type = 'square', volume = 0.12) {
+  if (isMuted) return;
   try {
     const ac = getAudioCtx();
     const osc = ac.createOscillator();
@@ -136,10 +139,46 @@ function sfxWin() {
   });
 }
 
+// Global Mute Toggle (🔊 / 🔇)
+window.toggleMuteSound = function() {
+  isMuted = !isMuted;
+  const bgm = document.getElementById('bgMusic');
+  const bda = document.getElementById('birthdayAudio');
+  const btn = document.getElementById('btnMute');
+
+  if (bgm) bgm.muted = isMuted;
+  if (bda) bda.muted = isMuted;
+
+  if (btn) {
+    btn.textContent = isMuted ? '🔇' : '🔊';
+    btn.title = isMuted ? 'Unmute Sound' : 'Mute Sound';
+  }
+};
+
+// Play Game Backsound (Looping)
+function playBgMusic() {
+  const bgm = document.getElementById('bgMusic');
+  if (bgm) {
+    bgm.loop = true;
+    bgm.volume = 0.45;
+    bgm.muted = isMuted;
+    bgm.play().catch(err => {
+      console.log('Autoplay audio waiting for interaction:', err);
+    });
+  }
+}
+
+function stopBgMusic() {
+  const bgm = document.getElementById('bgMusic');
+  if (bgm) {
+    bgm.pause();
+  }
+}
+
 /* ────────────────────────────────────────────────────────────
    4. GAME STATE & VARIABLES
    ──────────────────────────────────────────────────────────── */
-let gameState = 'menu'; // 'menu' | 'form' | 'playing' | 'gameover' | 'ending'
+let gameState = 'menu'; // 'menu' | 'form' | 'playing' | 'cutscene' | 'gameover' | 'ending'
 let score = 0;
 let lives = 3;
 let timeLeft = 180;
@@ -147,22 +186,16 @@ let timerInterval = null;
 let hasKey = false;
 let cameraX = 0;
 let globalTick = 0;
+let cutsceneTicks = 0;
+let heartsParticles = [];
 let birthInfo = { day: 20, month: 8, year: 2000, age: 26, monthName: 'Agustus' };
-
-// Voice Recording & Audio
-let voiceBlobUrl = null;
-let bgAudioEl = null;
-let mediaRecorder = null;
-let recordedChunks = [];
-let recTimerInterval = null;
-let recSeconds = 0;
 
 /* ────────────────────────────────────────────────────────────
    5. TILE SYSTEM & LEVEL GEOMETRY
    ──────────────────────────────────────────────────────────── */
-let TW = 48; // Tile width
-let TH = 48; // Tile height
-let GY = 450; // Ground Y level
+let TW = 48;
+let TH = 48;
+let GY = 450;
 let LEVEL_WIDTH = 3500;
 const LEVEL_TILES_COUNT = 65;
 
@@ -171,53 +204,33 @@ let enemies = [];
 let coins = [];
 let keyItem = { x: 0, y: 0, w: 40, h: 40, collected: false };
 let cageDoor = { x: 0, y: 0, w: 90, h: 110, unlocked: false };
-let princeAndri = { x: 0, y: 0, w: 50, h: 80 };
+let princeAndri = { x: 0, y: 0, w: 50, h: 80, isWalking: false, targetX: 0 };
 let player = {
   x: 100, y: 300, w: 48, h: 76,
   vx: 0, vy: 0,
   onGround: false,
-  dir: 1, // 1 = right, -1 = left
+  dir: 1,
   runFrame: 0,
   invincible: 0,
   dead: false
 };
 
 function buildLevel() {
-  // Compute responsive tile metrics
   TH = Math.max(40, Math.min(64, Math.floor(VH / 11)));
   TW = TH;
   GY = Math.floor(VH - TH * 2.3);
   LEVEL_WIDTH = LEVEL_TILES_COUNT * TW;
 
-  // Ground segments [colStart, colEnd]
   const groundSegs = [
-    [0, 8],
-    [12, 19],
-    [22, 27],
-    [30, 36],
-    [39, 45],
-    [48, 54],
-    [56, 64]
+    [0, 8], [12, 19], [22, 27], [30, 36], [39, 45], [48, 54], [56, 64]
   ];
 
-  // Floating platforms [col, row, widthInTiles]
   const floatSegs = [
-    [4, 7, 2],
-    [9, 6, 2],
-    [14, 5, 3],
-    [20, 6, 2],
-    [24, 4, 3],
-    [28, 6, 2],
-    [32, 5, 3],
-    [37, 4, 3],
-    [42, 6, 2],
-    [46, 5, 3],
-    [50, 4, 3],
-    [54, 6, 2],
-    [58, 5, 2]
+    [4, 7, 2], [9, 6, 2], [14, 5, 3], [20, 6, 2], [24, 4, 3],
+    [28, 6, 2], [32, 5, 3], [37, 4, 3], [42, 6, 2], [46, 5, 3],
+    [50, 4, 3], [54, 6, 2], [58, 5, 2]
   ];
 
-  // Enemies [col, row, minCol, maxCol, monsterVariant (1, 2, 3)]
   const enemyDefs = [
     [6, 7, 3, 7, 1],
     [15, 5, 14, 18, 2],
@@ -228,26 +241,14 @@ function buildLevel() {
     [57, 5, 56, 60, 1]
   ];
 
-  // Coins [col, row]
   const coinDefs = [
-    [4, 6], [5, 6],
-    [9, 5], [10, 5],
-    [15, 4], [16, 4],
-    [20, 5],
-    [24, 3], [25, 3], [26, 3],
-    [28, 5],
-    [32, 4], [33, 4], [34, 4],
-    [37, 3], [38, 3],
-    [42, 5], [43, 5],
-    [46, 4], [47, 4],
-    [50, 3], [51, 3],
-    [54, 5],
-    [58, 4], [59, 4]
+    [4, 6], [5, 6], [9, 5], [10, 5], [15, 4], [16, 4], [20, 5],
+    [24, 3], [25, 3], [26, 3], [28, 5], [32, 4], [33, 4], [34, 4],
+    [37, 3], [38, 3], [42, 5], [43, 5], [46, 4], [47, 4], [50, 3], [51, 3],
+    [54, 5], [58, 4], [59, 4]
   ];
 
   platforms = [];
-
-  // Construct ground
   groundSegs.forEach(seg => {
     platforms.push({
       x: seg[0] * TW,
@@ -258,7 +259,6 @@ function buildLevel() {
     });
   });
 
-  // Construct floating platforms
   floatSegs.forEach(seg => {
     platforms.push({
       x: seg[0] * TW,
@@ -269,7 +269,6 @@ function buildLevel() {
     });
   });
 
-  // Construct enemies
   enemies = enemyDefs.map(def => {
     const ew = Math.round(TH * 0.85);
     const eh = Math.round(TH * 0.85);
@@ -287,7 +286,6 @@ function buildLevel() {
     };
   });
 
-  // Construct coins
   coins = coinDefs.map(c => ({
     x: c[0] * TW + Math.round(TW * 0.3),
     y: c[1] * TH - 16,
@@ -296,7 +294,6 @@ function buildLevel() {
     collected: false
   }));
 
-  // Key Item Location (at col 50, row 3 on floating platform)
   const kw = Math.round(TH * 0.75);
   keyItem = {
     x: 51 * TW,
@@ -306,7 +303,6 @@ function buildLevel() {
     collected: false
   };
 
-  // Cage and Prince Andri at the far right
   const cageW = Math.round(TH * 1.8);
   const cageH = Math.round(TH * 2.2);
   cageDoor = {
@@ -323,7 +319,9 @@ function buildLevel() {
     x: cageDoor.x + Math.round((cageW - andriW) / 2),
     y: GY - andriH,
     w: andriW,
-    h: andriH
+    h: andriH,
+    isWalking: false,
+    targetX: 0
   };
 }
 
@@ -344,7 +342,7 @@ function resetPlayer(fresh = true) {
 }
 
 /* ────────────────────────────────────────────────────────────
-   6. USER INPUT (KEYBOARD & TOUCH)
+   6. USER INPUT
    ──────────────────────────────────────────────────────────── */
 const keys = {};
 
@@ -437,18 +435,30 @@ function generateStars() {
    ──────────────────────────────────────────────────────────── */
 document.getElementById('btnStart').addEventListener('click', () => {
   getAudioCtx();
+  playBgMusic(); // Start backsound on menu interaction
   showScreen('screen-form');
   gameState = 'form';
+  // Ensure form inputs start completely empty
+  document.getElementById('inpDay').value = '';
+  document.getElementById('inpMonth').value = '';
+  document.getElementById('inpYear').value = '';
 });
 
 document.getElementById('btnPlay').addEventListener('click', () => {
   getAudioCtx();
-  const day   = parseInt(document.getElementById('inpDay').value, 10);
-  const month = parseInt(document.getElementById('inpMonth').value, 10);
-  const year  = parseInt(document.getElementById('inpYear').value, 10);
+  playBgMusic(); // Ensure music plays when starting adventure
+
+  const dayVal   = document.getElementById('inpDay').value.trim();
+  const monthVal = document.getElementById('inpMonth').value.trim();
+  const yearVal  = document.getElementById('inpYear').value.trim();
+
+  const day   = parseInt(dayVal, 10);
+  const month = parseInt(monthVal, 10);
+  const year  = parseInt(yearVal, 10);
   const err   = document.getElementById('formError');
 
-  if (!day || !month || !year || day < 1 || day > 31 || year < 1980 || year > 2030) {
+  if (!dayVal || !monthVal || !yearVal || isNaN(day) || isNaN(month) || isNaN(year) ||
+      day < 1 || day > 31 || year < 1980 || year > 2030) {
     err.classList.remove('hidden');
     return;
   }
@@ -489,8 +499,11 @@ function startGame() {
   hasKey = false;
   cameraX = 0;
   globalTick = 0;
+  cutsceneTicks = 0;
+  heartsParticles = [];
   canvas.onclick = null;
 
+  playBgMusic();
   resizeCanvas();
   buildLevel();
   resetPlayer(true);
@@ -645,9 +658,9 @@ function updatePlayer() {
     sfxKey();
   }
 
-  // Rescue Prince Andri
+  // Touch cage while having key -> START CUTSCENE!
   if (hasKey && checkAABB(player, cageDoor)) {
-    triggerBirthdayEnding();
+    startRescuingCutscene();
     return;
   }
 
@@ -679,6 +692,7 @@ function handlePlayerDeath() {
   if (lives <= 0) {
     gameState = 'gameover';
     clearInterval(timerInterval);
+    stopBgMusic();
     return;
   }
   resetPlayer(false);
@@ -686,28 +700,77 @@ function handlePlayerDeath() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   11. ENDING CELEBRATION & POPUP
+   11. CUTSCENE: PRINCE ANDRI WALKS OUT & GIVES CAKE! 🎂💕
    ──────────────────────────────────────────────────────────── */
-function triggerBirthdayEnding() {
-  gameState = 'ending';
+function startRescuingCutscene() {
+  gameState = 'cutscene';
   clearInterval(timerInterval);
   hideHUD();
   sfxWin();
 
-  // Populate dynamic birthday details
+  // Cage opens!
+  cageDoor.unlocked = true;
+
+  // Player stops & faces right
+  player.vx = 0;
+  player.vy = 0;
+  player.dir = 1;
+
+  // Prince Andri walks towards Princess Ikah
+  princeAndri.isWalking = true;
+  princeAndri.targetX = player.x + player.w + 10;
+  cutsceneTicks = 0;
+  heartsParticles = [];
+}
+
+function updateCutscene() {
+  cutsceneTicks++;
+
+  // 1. Move Andri towards Ikah
+  if (princeAndri.x > princeAndri.targetX) {
+    princeAndri.x -= 2.0;
+    if (princeAndri.x <= princeAndri.targetX) {
+      princeAndri.x = princeAndri.targetX;
+      princeAndri.isWalking = false;
+    }
+  }
+
+  // 2. Spawn floating hearts
+  if (cutsceneTicks % 12 === 0) {
+    heartsParticles.push({
+      x: princeAndri.x + Math.random() * 40 - 20,
+      y: princeAndri.y + 10,
+      vy: -1.8,
+      opacity: 1.0,
+      icon: ['💖', '💕', '✨', '🎂'][Math.floor(Math.random() * 4)],
+      size: Math.floor(Math.random() * 10 + 18)
+    });
+  }
+
+  // Update hearts
+  heartsParticles.forEach(hp => {
+    hp.y += hp.vy;
+    hp.opacity -= 0.015;
+  });
+  heartsParticles = heartsParticles.filter(hp => hp.opacity > 0);
+
+  // 3. After cutscene duration (~3.2s), open final Birthday Popup
+  if (cutsceneTicks > 190) {
+    triggerBirthdayEndingPopup();
+  }
+}
+
+function triggerBirthdayEndingPopup() {
+  gameState = 'ending';
+  stopBgMusic(); // Stop background music so birthday song/voice is clear
+
   const infoEl = document.getElementById('popup-info');
   if (infoEl) {
     infoEl.textContent = `Ulang Tahun ke-${birthInfo.age} 🎂 (${birthInfo.day} ${birthInfo.monthName} ${birthInfo.year})`;
   }
 
-  setTimeout(() => {
-    document.getElementById('ending-popup').classList.remove('hidden');
-    spawnConfettiParticles();
-    if (bgAudioEl) {
-      bgAudioEl.currentTime = 0;
-      bgAudioEl.play().catch(() => {});
-    }
-  }, 600);
+  document.getElementById('ending-popup').classList.remove('hidden');
+  spawnConfettiParticles();
 }
 
 function spawnConfettiParticles() {
@@ -740,98 +803,42 @@ function spawnConfettiParticles() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   12. VOICE RECORDING & AUDIO PLAYBACK
+   12. MP3 AUDIO PLAYER CONTROLLER
    ──────────────────────────────────────────────────────────── */
-window.loadVoice = function(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  voiceBlobUrl = URL.createObjectURL(file);
-  setupVoiceAudio();
-  document.getElementById('voicePlayer').classList.remove('hidden');
-};
+window.toggleBirthdayAudio = function() {
+  const audio = document.getElementById('birthdayAudio');
+  const btn = document.getElementById('btnPlayMusic');
+  if (!audio || !btn) return;
 
-function setupVoiceAudio() {
-  if (bgAudioEl) {
-    bgAudioEl.pause();
-    bgAudioEl = null;
-  }
-  bgAudioEl = new Audio(voiceBlobUrl);
-  bgAudioEl.addEventListener('timeupdate', () => {
-    if (!bgAudioEl.duration) return;
-    const pct = (bgAudioEl.currentTime / bgAudioEl.duration) * 100;
-    document.getElementById('progressBar').style.width = `${pct}%`;
-    document.getElementById('voiceTime').textContent = formatSeconds(bgAudioEl.currentTime);
-  });
-  bgAudioEl.addEventListener('ended', () => {
-    document.getElementById('btnVoice').textContent = '▶ Play';
-  });
-}
-
-function formatSeconds(sec) {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
-
-window.toggleVoice = function() {
-  if (!bgAudioEl) return;
-  if (bgAudioEl.paused) {
-    bgAudioEl.play();
-    document.getElementById('btnVoice').textContent = '⏸ Pause';
+  if (audio.paused) {
+    audio.muted = isMuted;
+    audio.play().then(() => {
+      btn.textContent = '⏸ Jeda Musik / Ucapan';
+      btn.classList.add('playing');
+    }).catch(err => {
+      alert('File MP3 "Asset/lagu.mp3" tidak dapat diputar. Pastikan file ada!');
+    });
   } else {
-    bgAudioEl.pause();
-    document.getElementById('btnVoice').textContent = '▶ Play';
-  }
-};
-
-window.toggleRecording = async function() {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    mediaRecorder.stop();
-    document.getElementById('btnRecord').classList.remove('recording');
-    document.getElementById('btnRecord').textContent = '🎙 Rekam Suara';
-    document.getElementById('recStatus').classList.add('hidden');
-    clearInterval(recTimerInterval);
-    return;
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    recordedChunks = [];
-    mediaRecorder = new MediaRecorder(stream);
-
-    mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-    mediaRecorder.onstop = () => {
-      voiceBlobUrl = URL.createObjectURL(new Blob(recordedChunks, { type: 'audio/webm' }));
-      setupVoiceAudio();
-      document.getElementById('voicePlayer').classList.remove('hidden');
-      stream.getTracks().forEach(t => t.stop());
-    };
-
-    mediaRecorder.start();
-    recSeconds = 0;
-    document.getElementById('btnRecord').classList.add('recording');
-    document.getElementById('btnRecord').textContent = '⏹ Stop Rekam';
-    document.getElementById('recStatus').classList.remove('hidden');
-    document.getElementById('recTimer').textContent = '0s';
-
-    recTimerInterval = setInterval(() => {
-      recSeconds++;
-      document.getElementById('recTimer').textContent = `${recSeconds}s`;
-    }, 1000);
-  } catch (err) {
-    alert('Izin mikrofon diperlukan untuk merekam pesan suara!');
+    audio.pause();
+    btn.textContent = '▶ Putar Musik / Ucapan';
+    btn.classList.remove('playing');
   }
 };
 
 window.replayGame = function() {
   document.getElementById('ending-popup').classList.add('hidden');
-  if (bgAudioEl) {
-    bgAudioEl.pause();
-    bgAudioEl = null;
+  const audio = document.getElementById('birthdayAudio');
+  if (audio) {
+    audio.pause();
+    audio.currentTime = 0;
   }
+  const btn = document.getElementById('btnPlayMusic');
+  if (btn) btn.textContent = '▶ Putar Musik / Ucapan';
+
   showScreen('screen-menu');
   hideHUD();
   gameState = 'menu';
+  playBgMusic();
 };
 
 /* ────────────────────────────────────────────────────────────
@@ -896,7 +903,6 @@ function drawPlatforms() {
         ctx.fillRect(sx, p.y + 16, p.w, p.h - 16);
       }
     } else {
-      // Floating Platform
       if (isImgLoaded('floatPlat')) {
         const fImg = IMG['floatPlat'];
         ctx.drawImage(fImg, sx, p.y, p.w, p.h);
@@ -960,7 +966,6 @@ function drawKeyItem() {
   }
   ctx.restore();
 
-  // Floating text label
   ctx.save();
   ctx.font = `bold ${Math.round(TH * 0.28)}px Fredoka, sans-serif`;
   ctx.textAlign = 'center';
@@ -973,22 +978,31 @@ function drawKeyItem() {
 
 function drawCageAndAndri() {
   const sx = cageDoor.x - cameraX;
-  if (sx < -160 || sx > VW + 160) return;
+  if (sx < -180 || sx > VW + 180) return;
 
   const andriX = princeAndri.x - cameraX;
   const andriY = princeAndri.y;
   const bob = Math.sin(globalTick * 0.06) * 3;
 
-  // 1. Draw Prince Andri
-  const andriWalkCycle = ['andri_walk1', 'andri_walk2', 'andri_walk3'];
-  const andriKey = isImgLoaded(andriWalkCycle[Math.floor(globalTick / 12) % 3])
-    ? andriWalkCycle[Math.floor(globalTick / 12) % 3]
-    : 'andri_idle';
+  let andriKey = 'andri_idle';
+  if (princeAndri.isWalking) {
+    const walkCycle = ['andri_walk1', 'andri_walk2', 'andri_walk3'];
+    const idx = Math.floor(globalTick / 8) % 3;
+    andriKey = isImgLoaded(walkCycle[idx]) ? walkCycle[idx] : 'andri_idle';
+  }
 
   if (isImgLoaded(andriKey)) {
-    ctx.drawImage(IMG[andriKey], andriX, andriY + bob, princeAndri.w, princeAndri.h);
+    ctx.save();
+    if (gameState === 'cutscene' || gameState === 'ending') {
+      ctx.translate(andriX + princeAndri.w, andriY + bob);
+      ctx.scale(-1, 1);
+      ctx.drawImage(IMG[andriKey], 0, 0, princeAndri.w, princeAndri.h);
+    } else {
+      ctx.drawImage(IMG[andriKey], andriX, andriY + bob, princeAndri.w, princeAndri.h);
+    }
+    ctx.restore();
   } else {
-    // Fallback chibi Andri
+    ctx.save();
     ctx.fillStyle = '#FFE0B2';
     ctx.beginPath();
     ctx.arc(andriX + princeAndri.w / 2, andriY + 20 + bob, 18, 0, Math.PI * 2);
@@ -997,10 +1011,10 @@ function drawCageAndAndri() {
     ctx.fillRect(andriX + 6, andriY + 36 + bob, princeAndri.w - 12, 32);
     ctx.font = '18px serif';
     ctx.fillText('👑', andriX + princeAndri.w / 2 - 10, andriY + 12 + bob);
+    ctx.restore();
   }
 
-  // 2. Draw Cage over Andri (if still locked)
-  if (!hasKey) {
+  if (!cageDoor.unlocked) {
     if (isImgLoaded('cage')) {
       ctx.drawImage(IMG['cage'], sx, cageDoor.y, cageDoor.w, cageDoor.h);
     } else {
@@ -1012,41 +1026,37 @@ function drawCageAndAndri() {
       }
     }
 
-    // Lock icon & text
     ctx.save();
     ctx.font = `bold ${Math.round(TH * 0.28)}px Fredoka, sans-serif`;
     ctx.textAlign = 'center';
-    ctx.fillStyle = '#FF4081';
-    ctx.shadowColor = '#FF4081';
+    ctx.fillStyle = hasKey ? '#69F0AE' : '#FF4081';
+    ctx.shadowColor = ctx.fillStyle;
     ctx.shadowBlur = 10;
-    ctx.fillText('🔒 BUTUH KUNCI!', sx + cageDoor.w / 2, cageDoor.y - 12 + Math.sin(globalTick * 0.08) * 3);
-    ctx.restore();
-  } else {
-    // Unlocked!
-    ctx.save();
-    ctx.font = `bold ${Math.round(TH * 0.28)}px Fredoka, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#69F0AE';
-    ctx.shadowColor = '#69F0AE';
-    ctx.shadowBlur = 10;
-    ctx.fillText('🔓 BUKA SANGKAR!', sx + cageDoor.w / 2, cageDoor.y - 12 + Math.sin(globalTick * 0.08) * 3);
+    ctx.fillText(hasKey ? '🔓 BUKA SANGKAR!' : '🔒 BUTUH KUNCI!', sx + cageDoor.w / 2, cageDoor.y - 12 + Math.sin(globalTick * 0.08) * 3);
     ctx.restore();
   }
 
-  // 3. Birthday Cake in celebration
-  if (gameState === 'ending') {
+  if ((gameState === 'cutscene' && !princeAndri.isWalking) || gameState === 'ending') {
     const cakeW = Math.round(TH * 1.1);
     const cakeH = Math.round(TH * 1.1);
-    const cakeBob = Math.sin(globalTick * 0.12) * 5;
+    const cakeBob = Math.sin(globalTick * 0.12) * 4;
 
     if (isImgLoaded('cake')) {
-      ctx.drawImage(IMG['cake'], andriX + princeAndri.w / 2 - cakeW / 2, andriY - cakeH - 10 + cakeBob, cakeW, cakeH);
+      ctx.drawImage(IMG['cake'], andriX - cakeW * 0.3, andriY - cakeH * 0.6 + cakeBob, cakeW, cakeH);
     } else {
       ctx.font = '36px serif';
       ctx.textAlign = 'center';
-      ctx.fillText('🎂', andriX + princeAndri.w / 2, andriY - 15 + cakeBob);
+      ctx.fillText('🎂', andriX, andriY - 15 + cakeBob);
     }
   }
+
+  heartsParticles.forEach(hp => {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, hp.opacity);
+    ctx.font = `${hp.size}px serif`;
+    ctx.fillText(hp.icon, hp.x - cameraX, hp.y);
+    ctx.restore();
+  });
 }
 
 function drawPlayerCharacter() {
@@ -1055,12 +1065,10 @@ function drawPlayerCharacter() {
 
   ctx.save();
 
-  // Invincible flashing
   if (player.invincible > 0 && Math.floor(player.invincible / 6) % 2 === 0) {
     ctx.globalAlpha = 0.35;
   }
 
-  // Select sprite frame
   let spriteKey = 'ikah_idle';
   if (!player.onGround) {
     spriteKey = 'ikah_jump';
@@ -1080,18 +1088,15 @@ function drawPlayerCharacter() {
     }
     ctx.restore();
   } else {
-    // Fallback cute chibi princess
     ctx.save();
     ctx.translate(sx + (flip ? player.w : 0), player.y);
     ctx.scale(flip ? -1 : 1, 1);
 
-    // Head
     ctx.fillStyle = '#FFE0B2';
     ctx.beginPath();
     ctx.arc(player.w / 2, player.h * 0.3, player.w * 0.35, 0, Math.PI * 2);
     ctx.fill();
 
-    // Dress
     ctx.fillStyle = '#FF4081';
     ctx.beginPath();
     ctx.moveTo(player.w * 0.15, player.h);
@@ -1101,7 +1106,6 @@ function drawPlayerCharacter() {
     ctx.closePath();
     ctx.fill();
 
-    // Crown
     ctx.font = `${Math.round(player.w * 0.45)}px serif`;
     ctx.fillText('👑', player.w * 0.25, player.h * 0.2);
 
@@ -1179,19 +1183,26 @@ function drawGameOverScreen() {
    ──────────────────────────────────────────────────────────── */
 function gameLoop() {
   if (gameState === 'ending') {
-    return; // Handled by birthday celebration popup
+    return;
   }
 
   globalTick++;
 
-  // Clear Canvas
   ctx.clearRect(0, 0, VW, VH);
 
-  // Draw Layers
   drawBackground();
 
   if (gameState === 'gameover') {
     drawGameOverScreen();
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  if (gameState === 'cutscene') {
+    updateCutscene();
+    drawPlatforms();
+    drawCageAndAndri();
+    drawPlayerCharacter();
     requestAnimationFrame(gameLoop);
     return;
   }
