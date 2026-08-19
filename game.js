@@ -1,5 +1,5 @@
 /* ============================================================
-   BIRTHDAY QUEST  -  game.js  v8 (Clean Inputs & Sound Sync)
+   BIRTHDAY QUEST  -  game.js  v9 (Independent Birthday Audio)
    Princess Ikah menyelamatkan Prince Andri!  🎂👑
    Built with love for Ikah Maryanah's Special Birthday
    ============================================================ */
@@ -76,7 +76,7 @@ function isImgLoaded(k) {
 }
 
 /* ────────────────────────────────────────────────────────────
-   3. AUDIO SYNTHESIZER & MUTE CONTROL
+   3. AUDIO SYNTHESIZER & IN-GAME MUTE CONTROL
    ──────────────────────────────────────────────────────────── */
 let audioCtx = null;
 let isMuted = false;
@@ -139,23 +139,17 @@ function sfxWin() {
   });
 }
 
-// Global Mute Toggle (🔊 / 🔇)
+// In-Game Mute Toggle (🔊 / 🔇) - Only affects backsound & game sfx!
 window.toggleMuteSound = function() {
   isMuted = !isMuted;
   const bgm = document.getElementById('bgMusic');
-  const bda = document.getElementById('birthdayAudio');
   const btnHud = document.getElementById('btnMute');
-  const btnPopup = document.getElementById('btnMutePopup');
 
   if (bgm) bgm.muted = isMuted;
-  if (bda) bda.muted = isMuted;
 
   if (btnHud) {
     btnHud.textContent = isMuted ? '🔇' : '🔊';
     btnHud.title = isMuted ? 'Unmute Sound' : 'Mute Sound';
-  }
-  if (btnPopup) {
-    btnPopup.textContent = isMuted ? '🔇 Suara Off' : '🔊 Suara On';
   }
 };
 
@@ -442,7 +436,6 @@ document.getElementById('btnStart').addEventListener('click', () => {
   playBgMusic();
   showScreen('screen-form');
   gameState = 'form';
-  // Ensure form inputs start completely empty
   document.getElementById('inpDay').value = '';
   document.getElementById('inpMonth').value = '';
   document.getElementById('inpYear').value = '';
@@ -807,15 +800,17 @@ function spawnConfettiParticles() {
 }
 
 /* ────────────────────────────────────────────────────────────
-   12. MP3 AUDIO PLAYER CONTROLLER
+   12. INDEPENDENT BIRTHDAY MP3 PLAYER CONTROLLER
    ──────────────────────────────────────────────────────────── */
+// Birthday Song / Voice is ALWAYS unmuted & independent of game mute state!
 window.toggleBirthdayAudio = function() {
   const audio = document.getElementById('birthdayAudio');
   const btn = document.getElementById('btnPlayMusic');
   if (!audio || !btn) return;
 
   if (audio.paused) {
-    audio.muted = isMuted;
+    audio.muted = false; // Always play out loud when user clicks Play!
+    audio.volume = 1.0;
     audio.play().then(() => {
       btn.textContent = '⏸ Jeda Musik / Ucapan';
       btn.classList.add('playing');
