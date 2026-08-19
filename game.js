@@ -1,5 +1,5 @@
 /* ============================================================
-   BIRTHDAY QUEST  -  game.js  v7 (Music & Audio Polish)
+   BIRTHDAY QUEST  -  game.js  v8 (Clean Inputs & Sound Sync)
    Princess Ikah menyelamatkan Prince Andri!  🎂👑
    Built with love for Ikah Maryanah's Special Birthday
    ============================================================ */
@@ -144,14 +144,18 @@ window.toggleMuteSound = function() {
   isMuted = !isMuted;
   const bgm = document.getElementById('bgMusic');
   const bda = document.getElementById('birthdayAudio');
-  const btn = document.getElementById('btnMute');
+  const btnHud = document.getElementById('btnMute');
+  const btnPopup = document.getElementById('btnMutePopup');
 
   if (bgm) bgm.muted = isMuted;
   if (bda) bda.muted = isMuted;
 
-  if (btn) {
-    btn.textContent = isMuted ? '🔇' : '🔊';
-    btn.title = isMuted ? 'Unmute Sound' : 'Mute Sound';
+  if (btnHud) {
+    btnHud.textContent = isMuted ? '🔇' : '🔊';
+    btnHud.title = isMuted ? 'Unmute Sound' : 'Mute Sound';
+  }
+  if (btnPopup) {
+    btnPopup.textContent = isMuted ? '🔇 Suara Off' : '🔊 Suara On';
   }
 };
 
@@ -435,7 +439,7 @@ function generateStars() {
    ──────────────────────────────────────────────────────────── */
 document.getElementById('btnStart').addEventListener('click', () => {
   getAudioCtx();
-  playBgMusic(); // Start backsound on menu interaction
+  playBgMusic();
   showScreen('screen-form');
   gameState = 'form';
   // Ensure form inputs start completely empty
@@ -446,7 +450,7 @@ document.getElementById('btnStart').addEventListener('click', () => {
 
 document.getElementById('btnPlay').addEventListener('click', () => {
   getAudioCtx();
-  playBgMusic(); // Ensure music plays when starting adventure
+  playBgMusic();
 
   const dayVal   = document.getElementById('inpDay').value.trim();
   const monthVal = document.getElementById('inpMonth').value.trim();
@@ -458,7 +462,7 @@ document.getElementById('btnPlay').addEventListener('click', () => {
   const err   = document.getElementById('formError');
 
   if (!dayVal || !monthVal || !yearVal || isNaN(day) || isNaN(month) || isNaN(year) ||
-      day < 1 || day > 31 || year < 1980 || year > 2030) {
+      day < 1 || day > 31 || month < 1 || month > 12 || year < 1980 || year > 2030) {
     err.classList.remove('hidden');
     return;
   }
@@ -762,7 +766,7 @@ function updateCutscene() {
 
 function triggerBirthdayEndingPopup() {
   gameState = 'ending';
-  stopBgMusic(); // Stop background music so birthday song/voice is clear
+  stopBgMusic();
 
   const infoEl = document.getElementById('popup-info');
   if (infoEl) {

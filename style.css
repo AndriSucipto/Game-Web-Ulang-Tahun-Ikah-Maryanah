@@ -646,3 +646,10 @@ html, body {
 .hud-btn-mute:active {
   transform: scale(0.9);
 }
+
+/* ── MUTE POPUP BUTTON ── */
+.mute-popup-btn {
+  background: linear-gradient(180deg, #5C6BC0 0%, #3F51B5 100%) !important;
+  border-color: #9FA8DA !important;
+  color: #fff !important;
+}
