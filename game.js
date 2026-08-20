@@ -153,16 +153,28 @@ window.toggleMuteSound = function() {
   }
 };
 
-// Play Game Backsound (Looping)
+// Play Game Backsound (Always Looping)
 function playBgMusic() {
   const bgm = document.getElementById('bgMusic');
   if (bgm) {
     bgm.loop = true;
     bgm.volume = 0.45;
     bgm.muted = isMuted;
+    bgm.currentTime = bgm.currentTime || 0;
+    // Fallback: if 'loop' attribute fails, restart on 'ended'
+    bgm.removeEventListener('ended', bgmLoopFallback);
+    bgm.addEventListener('ended', bgmLoopFallback);
     bgm.play().catch(err => {
       console.log('Autoplay audio waiting for interaction:', err);
     });
+  }
+}
+
+function bgmLoopFallback() {
+  const bgm = document.getElementById('bgMusic');
+  if (bgm && gameState !== 'ending') {
+    bgm.currentTime = 0;
+    bgm.play().catch(() => {});
   }
 }
 
@@ -170,6 +182,7 @@ function stopBgMusic() {
   const bgm = document.getElementById('bgMusic');
   if (bgm) {
     bgm.pause();
+    bgm.currentTime = 0;
   }
 }
 
@@ -255,30 +268,24 @@ function buildLevel() {
     [0, 8], [12, 19], [22, 27], [30, 36], [39, 45], [48, 54], [56, 64]
   ];
 
-  // Floating platform heights are now defined as multipliers relative to
-  // the AVAILABLE SPACE above ground (GY), not absolute tile rows.
-  // Original row values mapped: row 4 = high, row 7 = near ground
-  // We map these to fractions of the space above ground.
-  // Original range was rows 4-7 out of ~9 visible rows.
-  // heightRatio: 0.0 = at ground, 1.0 = at top of play area
+  // Floating platform heights defined as heightRatio relative to play area
   const floatSegs = [
-    { col: 4, heightRatio: 0.22, spanTiles: 2 },   // was row 7 (low)
-    { col: 9, heightRatio: 0.32, spanTiles: 2 },   // was row 6
-    { col: 14, heightRatio: 0.45, spanTiles: 3 },  // was row 5
-    { col: 20, heightRatio: 0.32, spanTiles: 2 },  // was row 6
-    { col: 24, heightRatio: 0.55, spanTiles: 3 },  // was row 4 (high)
-    { col: 28, heightRatio: 0.32, spanTiles: 2 },  // was row 6
-    { col: 32, heightRatio: 0.45, spanTiles: 3 },  // was row 5
-    { col: 37, heightRatio: 0.55, spanTiles: 3 },  // was row 4
-    { col: 42, heightRatio: 0.32, spanTiles: 2 },  // was row 6
-    { col: 46, heightRatio: 0.45, spanTiles: 3 },  // was row 5
-    { col: 50, heightRatio: 0.55, spanTiles: 3 },  // was row 4
-    { col: 54, heightRatio: 0.32, spanTiles: 2 },  // was row 6
-    { col: 58, heightRatio: 0.45, spanTiles: 2 }   // was row 5
+    { col: 4, heightRatio: 0.22, spanTiles: 2 },   // plat 1
+    { col: 9, heightRatio: 0.32, spanTiles: 2 },   // plat 2
+    { col: 14, heightRatio: 0.45, spanTiles: 3 },  // plat 3
+    { col: 20, heightRatio: 0.32, spanTiles: 2 },  // plat 4
+    { col: 24, heightRatio: 0.55, spanTiles: 3 },  // plat 5
+    { col: 28, heightRatio: 0.32, spanTiles: 2 },  // plat 6
+    { col: 32, heightRatio: 0.45, spanTiles: 3 },  // plat 7
+    { col: 37, heightRatio: 0.55, spanTiles: 3 },  // plat 8
+    { col: 42, heightRatio: 0.32, spanTiles: 2 },  // plat 9
+    { col: 46, heightRatio: 0.45, spanTiles: 3 },  // plat 10
+    { col: 50, heightRatio: 0.55, spanTiles: 3 },  // plat 11 (has key)
+    { col: 54, heightRatio: 0.32, spanTiles: 2 },  // plat 12
+    { col: 58, heightRatio: 0.45, spanTiles: 2 }   // plat 13
   ];
 
   // Enemy definitions: [column, heightType, patrolMinCol, patrolMaxCol, variant]
-  // heightType: 'ground' = on ground, 'low' = on low platform, 'mid' = on mid, 'high' = on high
   const enemyDefs = [
     { col: 6, onGround: true, minCol: 3, maxCol: 7, variant: 1 },
     { col: 15, heightRatio: 0.45, minCol: 14, maxCol: 18, variant: 2 },
@@ -289,22 +296,12 @@ function buildLevel() {
     { col: 57, heightRatio: 0.45, minCol: 56, maxCol: 60, variant: 1 }
   ];
 
-  // Coin definitions: [column, heightRatio]
-  const coinHeightMap = {
-    3: 0.60, 4: 0.37, 5: 0.47, 6: 0.37, 7: 0.22
-  };
-  const coinDefs = [
-    [4, 6], [5, 6], [9, 5], [10, 5], [15, 4], [16, 4], [20, 5],
-    [24, 3], [25, 3], [26, 3], [28, 5], [32, 4], [33, 4], [34, 4],
-    [37, 3], [38, 3], [42, 5], [43, 5], [46, 4], [47, 4], [50, 3], [51, 3],
-    [54, 5], [58, 4], [59, 4]
-  ];
-
   // The play area height (from HUD to ground)
   const hudHeight = Math.round(TH * 1.2);
   const playAreaTop = hudHeight;
   const playAreaHeight = GY - playAreaTop;
 
+  // 1. Build platforms
   platforms = [];
   groundSegs.forEach(seg => {
     platforms.push({
@@ -317,7 +314,6 @@ function buildLevel() {
   });
 
   floatSegs.forEach(seg => {
-    // Calculate Y position relative to ground
     const platY = Math.round(GY - playAreaHeight * seg.heightRatio);
     platforms.push({
       x: seg.col * TW,
@@ -328,15 +324,14 @@ function buildLevel() {
     });
   });
 
+  // 2. Build enemies
   enemies = enemyDefs.map(def => {
     const ew = Math.round(TH * 0.85);
     const eh = Math.round(TH * 0.85);
     let ey;
     if (def.onGround) {
-      // Place on ground
       ey = GY - eh;
     } else {
-      // Place on corresponding floating platform level
       const platY = Math.round(GY - playAreaHeight * def.heightRatio);
       ey = platY - eh;
     }
@@ -354,28 +349,79 @@ function buildLevel() {
     };
   });
 
-  coins = coinDefs.map(c => {
-    const ratio = coinHeightMap[c[1]] || 0.40;
-    const coinY = Math.round(GY - playAreaHeight * ratio);
-    return {
-      x: c[0] * TW + Math.round(TW * 0.3),
-      y: coinY,
-      w: Math.round(24 * physicsScale),
-      h: Math.round(24 * physicsScale),
-      collected: false
-    };
+  // 3. Build coins
+  const coinSize = Math.max(16, Math.min(26, Math.round(TH * 0.46)));
+  const coinList = [];
+
+  // Coins on floating platforms
+  floatSegs.forEach(seg => {
+    const platY = Math.round(GY - playAreaHeight * seg.heightRatio);
+    const coinY = platY - coinSize - 6;
+    for (let c = 0; c < seg.spanTiles; c++) {
+      // Don't put coin on key platform slot (col 51)
+      if (seg.col === 50 && c === 1) continue;
+      coinList.push({
+        x: Math.round((seg.col + c + 0.5) * TW - coinSize / 2),
+        y: coinY,
+        w: coinSize,
+        h: coinSize,
+        collected: false
+      });
+    }
   });
 
+  // Coins on ground segments
+  const groundCoinCols = [
+    2, 3, 5,
+    13, 14, 17, 18,
+    22, 23, 26,
+    30, 31, 35,
+    39, 40, 44,
+    48, 53,
+    56, 57, 59
+  ];
+  const groundCoinY = GY - coinSize - 8;
+  groundCoinCols.forEach(col => {
+    coinList.push({
+      x: Math.round((col + 0.5) * TW - coinSize / 2),
+      y: groundCoinY,
+      w: coinSize,
+      h: coinSize,
+      collected: false
+    });
+  });
+
+  // Jump arc coins between gaps
+  const arcCoins = [
+    { col: 8.0, heightRatio: 0.20 },
+    { col: 19.0, heightRatio: 0.22 },
+    { col: 27.5, heightRatio: 0.22 }
+  ];
+  arcCoins.forEach(ac => {
+    const arcY = Math.round(GY - playAreaHeight * ac.heightRatio) - coinSize;
+    coinList.push({
+      x: Math.round(ac.col * TW - coinSize / 2),
+      y: arcY,
+      w: coinSize,
+      h: coinSize,
+      collected: false
+    });
+  });
+
+  coins = coinList;
+
+  // 4. Key item
   const kw = Math.round(TH * 0.75);
-  const keyY = Math.round(GY - playAreaHeight * 0.60) - kw - 8;
+  const plat50Y = Math.round(GY - playAreaHeight * 0.55);
   keyItem = {
-    x: 51 * TW,
-    y: keyY,
+    x: 51 * TW + Math.round((TW - kw) / 2),
+    y: plat50Y - kw - 6,
     w: kw,
     h: kw,
     collected: false
   };
 
+  // 5. Cage door & Prince Andri
   const cageW = Math.round(TH * 1.8);
   const cageH = Math.round(TH * 2.2);
   cageDoor = {
@@ -404,10 +450,10 @@ function resetPlayer(fresh = true) {
   player.w = pw;
   player.h = ph;
   player.x = 2 * TW;
-  player.y = GY - ph - 6;
+  player.y = GY - ph;  // Place exactly on ground, no gap
   player.vx = 0;
   player.vy = 0;
-  player.onGround = false;
+  player.onGround = true;  // Start on ground
   player.dir = 1;
   player.runFrame = 0;
   player.invincible = fresh ? 0 : 90;
@@ -997,21 +1043,36 @@ function drawCoins() {
     const sx = c.x - cameraX;
     if (sx < -40 || sx > VW + 40) return;
 
-    const bob = Math.sin(globalTick * 0.08 + c.x * 0.01) * 4;
+    const bob = Math.sin(globalTick * 0.08 + c.x * 0.01) * 3;
+    const cx = sx + c.w / 2;
+    const cy = c.y + c.h / 2 + bob;
+    const r = c.w * 0.46;
 
     ctx.save();
-    ctx.shadowColor = '#FFD700';
-    ctx.shadowBlur = 12;
+    // Outer golden glow
+    ctx.shadowColor = 'rgba(255, 215, 0, 0.85)';
+    ctx.shadowBlur = Math.round(8 * (TH / BASE_TH));
+
+    // Outer coin fill
     ctx.fillStyle = '#FFD700';
     ctx.beginPath();
-    ctx.arc(sx + 12, c.y + 12 + bob, 11, 0, Math.PI * 2);
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
 
+    // Inner embossed circle
     ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#FFA000';
+    ctx.lineWidth = Math.max(1.2, r * 0.16);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Shine / sparkle
     ctx.fillStyle = '#FFF9C4';
     ctx.beginPath();
-    ctx.arc(sx + 10, c.y + 10 + bob, 4.5, 0, Math.PI * 2);
+    ctx.arc(cx - r * 0.28, cy - r * 0.28, r * 0.28, 0, Math.PI * 2);
     ctx.fill();
+
     ctx.restore();
   });
 }

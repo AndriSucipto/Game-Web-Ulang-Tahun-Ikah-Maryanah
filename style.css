@@ -56,6 +56,9 @@ html, body {
   z-index: 50;
   background: radial-gradient(ellipse at 50% 40%, #2D0A4E 0%, #0D0221 100%);
   transition: opacity 0.3s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px;
 }
 
 .screen.hidden, .hidden {
@@ -92,6 +95,7 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin: auto;
 }
 
 .menu-couple-art {
@@ -312,18 +316,18 @@ html, body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 110px;
+  height: 120px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 0 16px 16px;
+  padding: 0 22px 20px;
   z-index: 35;
   pointer-events: none;
 }
 
 .touch-left-area {
   display: flex;
-  gap: 10px;
+  gap: 16px;
   pointer-events: auto;
 }
 
@@ -567,18 +571,21 @@ html, body {
 /* ── MEDIA QUERIES FOR EXTRA RESPONSIVENESS ── */
 @media (max-width: 480px) {
   .touch-btn.dpad {
-    width: 60px;
-    height: 60px;
+    width: 58px;
+    height: 58px;
     font-size: 22px;
   }
   .touch-btn.jump {
-    width: 66px;
-    height: 66px;
+    width: 64px;
+    height: 64px;
     font-size: 14px;
   }
   #touch-controls {
-    height: 95px;
-    padding: 0 12px 12px;
+    height: 105px;
+    padding: 0 16px 16px;
+  }
+  .touch-left-area {
+    gap: 14px;
   }
   #game-hud {
     padding: 6px 8px;
@@ -589,20 +596,107 @@ html, body {
   }
 }
 
+/* Landscape mode responsive */
+@media (orientation: landscape) {
+  .screen {
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+  }
+  .menu-box {
+    padding: 10px 16px;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    max-width: 440px;
+    margin: auto;
+    gap: 0;
+  }
+  .menu-couple-art {
+    margin-bottom: clamp(3px, 1.2vh, 8px);
+    margin-right: 0;
+  }
+  .menu-couple-art img {
+    width: clamp(65px, 20vh, 110px);
+    height: clamp(65px, 20vh, 110px);
+  }
+  .logo-main {
+    font-size: clamp(16px, 5vh, 26px);
+    letter-spacing: 2px;
+    line-height: 1.1;
+  }
+  .logo-sub {
+    font-size: clamp(12px, 3.8vh, 18px);
+    margin-bottom: clamp(3px, 1vh, 6px);
+    letter-spacing: 3px;
+  }
+  .menu-tagline {
+    font-size: clamp(10px, 2.8vh, 12px);
+    line-height: 1.35;
+    margin-bottom: clamp(6px, 2vh, 12px);
+  }
+  .menu-footer {
+    bottom: 4px;
+    font-size: 9px;
+  }
+  .form-box {
+    padding: 10px 16px;
+    max-width: 360px;
+    border-radius: 18px;
+    margin: auto;
+  }
+  .form-title {
+    font-size: clamp(13px, 4.2vh, 17px);
+    margin-bottom: 2px;
+  }
+  .form-desc {
+    font-size: clamp(10px, 2.6vh, 12px);
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+  .input-row {
+    margin-bottom: 8px;
+    gap: 6px;
+  }
+  .input-label {
+    font-size: 9px;
+  }
+  .chibi-input {
+    font-size: clamp(11px, 2.8vh, 13px);
+    padding: 4px 6px;
+    width: 62px;
+    border-radius: 8px;
+  }
+  .form-error {
+    font-size: 10px;
+    padding: 3px 6px;
+    margin-bottom: 6px;
+  }
+  .chibi-btn {
+    padding: clamp(6px, 1.8vh, 10px) clamp(16px, 4vw, 24px);
+    font-size: clamp(11px, 2.8vh, 14px);
+    border-radius: 20px;
+  }
+}
+
 @media (max-height: 480px) and (orientation: landscape) {
   #touch-controls {
-    height: 65px;
-    padding: 0 20px 6px;
+    height: 70px;
+    padding: 0 24px 8px;
+  }
+  .touch-left-area {
+    gap: 14px;
   }
   .touch-btn.dpad {
-    width: 48px;
-    height: 48px;
+    width: 50px;
+    height: 50px;
     font-size: 17px;
     border-radius: 14px;
   }
   .touch-btn.jump {
-    width: 52px;
-    height: 52px;
+    width: 54px;
+    height: 54px;
     font-size: 11px;
   }
   #game-hud {
@@ -632,18 +726,21 @@ html, body {
 /* Extra short landscape screens (e.g. very wide phones) */
 @media (max-height: 380px) and (orientation: landscape) {
   #touch-controls {
-    height: 55px;
-    padding: 0 16px 4px;
+    height: 58px;
+    padding: 0 20px 5px;
+  }
+  .touch-left-area {
+    gap: 12px;
   }
   .touch-btn.dpad {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     font-size: 15px;
     border-radius: 12px;
   }
   .touch-btn.jump {
-    width: 46px;
-    height: 46px;
+    width: 48px;
+    height: 48px;
     font-size: 10px;
   }
   #game-hud {
@@ -652,6 +749,10 @@ html, body {
   .hud-item {
     font-size: 9px;
     padding: 2px 5px;
+  }
+  .menu-couple-art img {
+    width: 70px;
+    height: 70px;
   }
 }
 
