@@ -591,22 +591,67 @@ html, body {
 
 @media (max-height: 480px) and (orientation: landscape) {
   #touch-controls {
-    height: 75px;
-    padding: 0 16px 8px;
+    height: 65px;
+    padding: 0 20px 6px;
   }
   .touch-btn.dpad {
-    width: 52px;
-    height: 52px;
-    font-size: 18px;
+    width: 48px;
+    height: 48px;
+    font-size: 17px;
+    border-radius: 14px;
   }
   .touch-btn.jump {
-    width: 56px;
-    height: 56px;
-    font-size: 12px;
+    width: 52px;
+    height: 52px;
+    font-size: 11px;
+  }
+  #game-hud {
+    padding: 4px 8px;
+  }
+  .hud-item {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 8px;
   }
   .popup-couple-img {
     width: 70px;
     height: 70px;
+  }
+  .ending-popup-inner {
+    padding: 14px 12px;
+    max-height: 95vh;
+  }
+  .popup-header {
+    font-size: 16px;
+  }
+  .popup-name {
+    font-size: 18px;
+  }
+}
+
+/* Extra short landscape screens (e.g. very wide phones) */
+@media (max-height: 380px) and (orientation: landscape) {
+  #touch-controls {
+    height: 55px;
+    padding: 0 16px 4px;
+  }
+  .touch-btn.dpad {
+    width: 42px;
+    height: 42px;
+    font-size: 15px;
+    border-radius: 12px;
+  }
+  .touch-btn.jump {
+    width: 46px;
+    height: 46px;
+    font-size: 10px;
+  }
+  #game-hud {
+    padding: 2px 6px;
+  }
+  .hud-item {
+    font-size: 9px;
+    padding: 2px 5px;
   }
 }
 

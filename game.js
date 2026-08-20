@@ -197,6 +197,12 @@ let GY = 450;
 let LEVEL_WIDTH = 3500;
 const LEVEL_TILES_COUNT = 65;
 
+// Base reference tile size for scaling physics
+const BASE_TH = 48;
+let GRAVITY   = 0.48;
+let JUMP_VEL  = -12.5;
+let RUN_SPEED = 4.2;
+
 let platforms = [];
 let enemies = [];
 let coins = [];
@@ -214,37 +220,90 @@ let player = {
 };
 
 function buildLevel() {
-  TH = Math.max(40, Math.min(64, Math.floor(VH / 11)));
+  // Use the SMALLER screen dimension to keep tile size consistent
+  // across portrait and landscape orientations
+  const minDim = Math.min(VW, VH);
+  const maxDim = Math.max(VW, VH);
+  const isLandscape = VW > VH;
+
+  // In landscape, base tile size on VH (the smaller dim) to keep things proportional
+  // In portrait, base tile size on VH but with more rows
+  if (isLandscape) {
+    TH = Math.max(32, Math.min(56, Math.floor(VH / 9)));
+  } else {
+    TH = Math.max(36, Math.min(64, Math.floor(VH / 13)));
+  }
   TW = TH;
-  GY = Math.floor(VH - TH * 2.3);
+
+  // Ground always sits at a consistent relative position from bottom
+  // Leave room for ground tiles (2.3 * TH) + touch controls area
+  const touchControlsSpace = isLandscape ? 75 : 110;
+  GY = Math.floor(VH - TH * 2.3 - (touchControlsSpace * 0.3));
+
+  // Ensure GY doesn't go too high or too low
+  GY = Math.max(Math.floor(VH * 0.55), Math.min(Math.floor(VH * 0.78), GY));
+
   LEVEL_WIDTH = LEVEL_TILES_COUNT * TW;
+
+  // Scale physics proportionally to tile size
+  const physicsScale = TH / BASE_TH;
+  GRAVITY   = 0.48 * physicsScale;
+  JUMP_VEL  = -12.5 * physicsScale;
+  RUN_SPEED = 4.2 * physicsScale;
 
   const groundSegs = [
     [0, 8], [12, 19], [22, 27], [30, 36], [39, 45], [48, 54], [56, 64]
   ];
 
+  // Floating platform heights are now defined as multipliers relative to
+  // the AVAILABLE SPACE above ground (GY), not absolute tile rows.
+  // Original row values mapped: row 4 = high, row 7 = near ground
+  // We map these to fractions of the space above ground.
+  // Original range was rows 4-7 out of ~9 visible rows.
+  // heightRatio: 0.0 = at ground, 1.0 = at top of play area
   const floatSegs = [
-    [4, 7, 2], [9, 6, 2], [14, 5, 3], [20, 6, 2], [24, 4, 3],
-    [28, 6, 2], [32, 5, 3], [37, 4, 3], [42, 6, 2], [46, 5, 3],
-    [50, 4, 3], [54, 6, 2], [58, 5, 2]
+    { col: 4, heightRatio: 0.22, spanTiles: 2 },   // was row 7 (low)
+    { col: 9, heightRatio: 0.32, spanTiles: 2 },   // was row 6
+    { col: 14, heightRatio: 0.45, spanTiles: 3 },  // was row 5
+    { col: 20, heightRatio: 0.32, spanTiles: 2 },  // was row 6
+    { col: 24, heightRatio: 0.55, spanTiles: 3 },  // was row 4 (high)
+    { col: 28, heightRatio: 0.32, spanTiles: 2 },  // was row 6
+    { col: 32, heightRatio: 0.45, spanTiles: 3 },  // was row 5
+    { col: 37, heightRatio: 0.55, spanTiles: 3 },  // was row 4
+    { col: 42, heightRatio: 0.32, spanTiles: 2 },  // was row 6
+    { col: 46, heightRatio: 0.45, spanTiles: 3 },  // was row 5
+    { col: 50, heightRatio: 0.55, spanTiles: 3 },  // was row 4
+    { col: 54, heightRatio: 0.32, spanTiles: 2 },  // was row 6
+    { col: 58, heightRatio: 0.45, spanTiles: 2 }   // was row 5
   ];
 
+  // Enemy definitions: [column, heightType, patrolMinCol, patrolMaxCol, variant]
+  // heightType: 'ground' = on ground, 'low' = on low platform, 'mid' = on mid, 'high' = on high
   const enemyDefs = [
-    [6, 7, 3, 7, 1],
-    [15, 5, 14, 18, 2],
-    [24, 4, 23, 27, 3],
-    [33, 5, 31, 35, 1],
-    [41, 7, 39, 44, 2],
-    [49, 4, 48, 52, 3],
-    [57, 5, 56, 60, 1]
+    { col: 6, onGround: true, minCol: 3, maxCol: 7, variant: 1 },
+    { col: 15, heightRatio: 0.45, minCol: 14, maxCol: 18, variant: 2 },
+    { col: 24, heightRatio: 0.55, minCol: 23, maxCol: 27, variant: 3 },
+    { col: 33, heightRatio: 0.45, minCol: 31, maxCol: 35, variant: 1 },
+    { col: 41, onGround: true, minCol: 39, maxCol: 44, variant: 2 },
+    { col: 49, heightRatio: 0.55, minCol: 48, maxCol: 52, variant: 3 },
+    { col: 57, heightRatio: 0.45, minCol: 56, maxCol: 60, variant: 1 }
   ];
 
+  // Coin definitions: [column, heightRatio]
+  const coinHeightMap = {
+    3: 0.60, 4: 0.37, 5: 0.47, 6: 0.37, 7: 0.22
+  };
   const coinDefs = [
     [4, 6], [5, 6], [9, 5], [10, 5], [15, 4], [16, 4], [20, 5],
     [24, 3], [25, 3], [26, 3], [28, 5], [32, 4], [33, 4], [34, 4],
     [37, 3], [38, 3], [42, 5], [43, 5], [46, 4], [47, 4], [50, 3], [51, 3],
     [54, 5], [58, 4], [59, 4]
   ];
+
+  // The play area height (from HUD to ground)
+  const hudHeight = Math.round(TH * 1.2);
+  const playAreaTop = hudHeight;
+  const playAreaHeight = GY - playAreaTop;
 
   platforms = [];
   groundSegs.forEach(seg => {
@@ -258,10 +317,12 @@ function buildLevel() {
   });
 
   floatSegs.forEach(seg => {
+    // Calculate Y position relative to ground
+    const platY = Math.round(GY - playAreaHeight * seg.heightRatio);
     platforms.push({
-      x: seg[0] * TW,
-      y: seg[1] * TH,
-      w: seg[2] * TW,
+      x: seg.col * TW,
+      y: platY,
+      w: seg.spanTiles * TW,
       h: Math.round(TH * 0.65),
       type: 'float'
     });
@@ -270,32 +331,46 @@ function buildLevel() {
   enemies = enemyDefs.map(def => {
     const ew = Math.round(TH * 0.85);
     const eh = Math.round(TH * 0.85);
+    let ey;
+    if (def.onGround) {
+      // Place on ground
+      ey = GY - eh;
+    } else {
+      // Place on corresponding floating platform level
+      const platY = Math.round(GY - playAreaHeight * def.heightRatio);
+      ey = platY - eh;
+    }
     return {
-      x: def[0] * TW,
-      y: def[1] * TH - eh,
+      x: def.col * TW,
+      y: ey,
       w: ew,
       h: eh,
-      vx: 1.4,
+      vx: 1.4 * physicsScale,
       dir: 1,
-      minX: def[2] * TW,
-      maxX: def[3] * TW,
-      variant: def[4],
+      minX: def.minCol * TW,
+      maxX: def.maxCol * TW,
+      variant: def.variant,
       alive: true
     };
   });
 
-  coins = coinDefs.map(c => ({
-    x: c[0] * TW + Math.round(TW * 0.3),
-    y: c[1] * TH - 16,
-    w: 24,
-    h: 24,
-    collected: false
-  }));
+  coins = coinDefs.map(c => {
+    const ratio = coinHeightMap[c[1]] || 0.40;
+    const coinY = Math.round(GY - playAreaHeight * ratio);
+    return {
+      x: c[0] * TW + Math.round(TW * 0.3),
+      y: coinY,
+      w: Math.round(24 * physicsScale),
+      h: Math.round(24 * physicsScale),
+      collected: false
+    };
+  });
 
   const kw = Math.round(TH * 0.75);
+  const keyY = Math.round(GY - playAreaHeight * 0.60) - kw - 8;
   keyItem = {
     x: 51 * TW,
-    y: 3 * TH - kw - 8,
+    y: keyY,
     w: kw,
     h: kw,
     collected: false
@@ -527,9 +602,8 @@ function startGame() {
 /* ────────────────────────────────────────────────────────────
    10. PHYSICS & COLLISIONS
    ──────────────────────────────────────────────────────────── */
-const GRAVITY   = 0.48;
-const JUMP_VEL  = -12.5;
-const RUN_SPEED = 4.2;
+// Physics constants are now dynamically set in buildLevel()
+// See section 5 for GRAVITY, JUMP_VEL, RUN_SPEED
 
 function checkAABB(r1, r2) {
   return (
